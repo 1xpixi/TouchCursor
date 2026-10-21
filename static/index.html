@@ -1,0 +1,830 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#101216">
+  <title>TouchCursor</title>
+  <link rel="icon" type="image/svg+xml" href="/icon.svg">
+  <style>
+    :root {
+      color-scheme: dark;
+      font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+      --bg: #101216;
+      --surface: #191c22;
+      --line: #2b3039;
+      --text: #eceef2;
+      --muted: #959ca9;
+      --accent: #9bbcf4;
+    }
+
+    * { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      overscroll-behavior: none;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button, input { font: inherit; }
+    button {
+      color: inherit;
+      cursor: pointer;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button:disabled { cursor: wait; opacity: 0.6; }
+    button:focus-visible, input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      height: var(--viewport-height, 100dvh);
+      padding: env(safe-area-inset-top) env(safe-area-inset-right)
+        0 env(safe-area-inset-left);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      flex: 0 0 56px;
+      gap: 12px;
+      padding: 0 18px;
+    }
+
+    .brand { margin-right: auto; font-size: 14px; font-weight: 650; letter-spacing: -0.02em; }
+    .status { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: #636b79; }
+    .status[data-state="connecting"] .dot { background: #dab578; }
+    .status[data-state="ready"] .dot { background: #83c9a5; }
+
+    .icon-button {
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      padding: 0;
+      border: 0;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+    }
+
+    .icon-button:active { background: var(--surface); color: var(--text); }
+    .icon-button svg { width: 20px; height: 20px; }
+    .notice {
+      flex: 0 0 auto;
+      margin: 0 16px 10px;
+      padding: 10px 12px;
+      border: 1px solid #6b4146;
+      border-radius: 10px;
+      background: #2b1d22;
+      color: #ffc3c8;
+      font-size: 13px;
+    }
+
+    .pair {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: auto;
+      padding: 28px 28px max(28px, env(safe-area-inset-bottom));
+      scroll-padding: 20px;
+    }
+
+    .pair-content { width: min(100%, 340px); margin: auto; text-align: center; }
+    h1 { margin: 0 0 10px; font-size: 30px; font-weight: 650; line-height: 1.2; letter-spacing: -0.04em; }
+    .pair p { margin: 0 0 30px; color: var(--muted); font-size: 14px; }
+    .pair .pair-footer { margin: 20px 0 0; font-size: 12px; color: var(--muted); }
+    .pin-label { display: block; margin-bottom: 8px; font-size: 13px; color: var(--muted); }
+    .pin {
+      width: 100%;
+      height: 80px;
+      padding: 12px 18px;
+      border: 1px solid #3a424f;
+      border-radius: 18px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 32px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.5em;
+      text-indent: 0.5em;
+      text-align: center;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    .pin::placeholder { color: #545c6b; }
+    .primary, .disconnect {
+      width: 100%;
+      min-height: 54px;
+      padding: 12px 16px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      font-weight: 600;
+    }
+
+    .primary { margin-top: 16px; border-color: var(--accent); background: var(--accent); color: #111b2b; }
+    .primary:active { background: #b1ccfa; }
+    .remote { display: flex; flex: 1; flex-direction: column; min-height: 0; }
+    .pad {
+      flex: 1;
+      min-height: 0;
+      margin: 0 12px 12px;
+      border: 1px solid #2c3340;
+      border-radius: 24px;
+      background: radial-gradient(ellipse at 50% 35%, #1d232d, #161a21 80%);
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    .clickbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      flex: 0 0 auto;
+      padding: 0 12px max(8px, env(safe-area-inset-bottom));
+      gap: 1px;
+    }
+    .clickbar button {
+      min-height: 60px;
+      border: 0;
+      border-radius: 16px;
+      background: transparent;
+      color: #c7ced9;
+      font-size: 14px;
+      -webkit-touch-callout: none;
+    }
+    .clickbar button + button { position: relative; }
+    .clickbar button + button::before {
+      content: "";
+      position: absolute;
+      top: 18px;
+      bottom: 18px;
+      left: -1px;
+      width: 1px;
+      background: var(--line);
+    }
+    .clickbar button:active { background: #262d38; color: var(--text); }
+    .clickbar button:focus-visible { outline-offset: -4px; }
+
+    .settings {
+      position: fixed;
+      inset: auto 0 0;
+      width: min(100%, 460px);
+      max-height: calc(var(--viewport-height, 100dvh) - env(safe-area-inset-top) - 12px);
+      margin: 0 auto;
+      padding: 16px max(22px, env(safe-area-inset-right))
+        max(22px, env(safe-area-inset-bottom)) max(22px, env(safe-area-inset-left));
+      overflow: auto;
+      overscroll-behavior: contain;
+      border: 1px solid var(--line);
+      border-bottom: 0;
+      border-radius: 22px 22px 0 0;
+      background: var(--surface);
+      color: var(--text);
+      box-shadow: 0 -12px 60px #0005;
+    }
+
+    .settings::backdrop { background: #0008; }
+    .sheet-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+    h2 { margin: 0; font-size: 18px; font-weight: 600; }
+    .speed-label { display: flex; justify-content: space-between; gap: 16px; font-size: 14px; }
+    output { color: var(--muted); font-variant-numeric: tabular-nums; }
+    input[type="range"] { width: 100%; height: 44px; margin: 4px 0 12px; accent-color: var(--accent); }
+    .gestures { margin: 4px 0 24px; font-size: 13px; }
+    .gestures div { display: flex; justify-content: space-between; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+    .gestures dt { color: var(--muted); }
+    .gestures dd { margin: 0; text-align: right; }
+    .disconnect { background: transparent; color: #efb6bc; }
+    .forget {
+      width: 100%;
+      min-height: 44px;
+      margin-top: 4px;
+      padding: 8px;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .privacy { margin: 14px 0 0; color: var(--muted); font-size: 12px; text-align: center; }
+
+    @media (max-height: 450px) {
+      .header { flex-basis: 46px; }
+      .clickbar button { min-height: 48px; }
+      .pad { margin: 0 8px 4px; border-radius: 18px; }
+      .pair { padding: 16px 24px max(16px, env(safe-area-inset-bottom)); }
+      h1 { font-size: 24px; }
+      .pair p { margin-bottom: 16px; }
+      .pair .pair-footer { margin-top: 12px; }
+      .pin { height: 64px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <span class="brand">TouchCursor</span>
+      <div class="status" id="connection" data-state="offline" role="status" aria-live="polite">
+        <span class="dot" aria-hidden="true"></span>
+        <span id="status">Not connected</span>
+      </div>
+      <button class="icon-button" id="openSettings" aria-label="Open settings" aria-haspopup="dialog" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+          <path d="M8 3v6M16 9v6M10 15v6" stroke-width="3" />
+        </svg>
+      </button>
+    </header>
+
+    <div class="notice" id="notice" role="alert" hidden></div>
+
+    <section class="pair" id="pair" aria-labelledby="pairTitle">
+      <div class="pair-content">
+        <h1 id="pairTitle">Pair your device</h1>
+        <p id="pairHint">Enter the PIN shown in the TouchCursor window on your computer.</p>
+        <form id="pairForm" novalidate>
+          <div id="pinEntry">
+            <label class="pin-label" for="pin">4-digit PIN</label>
+            <input class="pin" id="pin" type="text" inputmode="numeric" autocomplete="one-time-code"
+              minlength="4" maxlength="4" pattern="[0-9]{4}" placeholder="0000"
+              enterkeyhint="go" autocapitalize="off" spellcheck="false"
+              aria-describedby="pairHint notice" required>
+          </div>
+          <button class="primary" id="connectButton" type="submit">Connect</button>
+        </form>
+        <p class="pair-footer">Keep both devices on the same Wi-Fi.</p>
+      </div>
+    </section>
+
+    <section class="remote" id="remote" aria-label="Remote control" hidden>
+      <div class="pad" id="pad" role="region"
+        aria-label="Touchpad. Drag to move, tap to click, hold to right click, or use two fingers to scroll."></div>
+      <div class="clickbar" aria-label="Mouse buttons">
+        <button id="left" type="button">Left click</button>
+        <button id="right" type="button">Right click</button>
+      </div>
+    </section>
+  </main>
+
+  <dialog class="settings" id="settings" aria-labelledby="settingsTitle">
+    <div class="sheet-header">
+      <h2 id="settingsTitle">Settings</h2>
+      <form method="dialog">
+        <button class="icon-button" aria-label="Close settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+            <path d="m6 6 12 12M6 18 18 6" />
+          </svg>
+        </button>
+      </form>
+    </div>
+    <div class="speed-label">
+      <label for="sensitivity">Pointer speed</label>
+      <output id="speedValue" for="sensitivity">1.3×</output>
+    </div>
+    <input id="sensitivity" type="range" min="0.5" max="2.5" step="0.1" value="1.3" aria-valuetext="1.3 times">
+    <dl class="gestures">
+      <div><dt>One finger</dt><dd>Move the pointer</dd></div>
+      <div><dt>Tap / two quick taps</dt><dd>Click / double-click</dd></div>
+      <div><dt>Hold for a moment</dt><dd>Right-click</dd></div>
+      <div><dt>Two fingers</dt><dd>Scroll</dd></div>
+    </dl>
+    <button class="disconnect" id="disconnect" type="button">Disconnect</button>
+    <button class="forget" id="forgetBrowser" type="button" hidden>Forget this browser</button>
+    <p class="privacy" id="privacy">A trusted credential is saved in this browser, never your PIN. Forgetting clears this browser only; use the computer to revoke trusted devices.</p>
+  </dialog>
+
+  <script>
+    const pair = document.querySelector('#pair');
+    const pairTitle = document.querySelector('#pairTitle');
+    const pairHint = document.querySelector('#pairHint');
+    const pinEntry = document.querySelector('#pinEntry');
+    const remote = document.querySelector('#remote');
+    const pinField = document.querySelector('#pin');
+    const connectButton = document.querySelector('#connectButton');
+    const connection = document.querySelector('#connection');
+    const statusText = document.querySelector('#status');
+    const notice = document.querySelector('#notice');
+    const pad = document.querySelector('#pad');
+    const settings = document.querySelector('#settings');
+    const openSettings = document.querySelector('#openSettings');
+    const sensitivityField = document.querySelector('#sensitivity');
+    const speedValue = document.querySelector('#speedValue');
+    const disconnectButton = document.querySelector('#disconnect');
+    const forgetBrowser = document.querySelector('#forgetBrowser');
+    const privacy = document.querySelector('#privacy');
+
+    const TOKEN_KEY = 'touchcursor-device-token';
+    const TOKEN_PATTERN = /^[0-9a-f]{64}$/;
+    const STORAGE_WARNING = 'Browser storage is unavailable, so TouchCursor cannot remember this browser after this visit.';
+    const BUFFER_LIMIT = 512;
+    const MAX_MOTION_AGE = 100;
+    const fingers = new Map();
+    const movePacket = new DataView(new ArrayBuffer(9));
+    const scrollPacket = new DataView(new ArrayBuffer(5));
+    const clickPacket = new DataView(new ArrayBuffer(2));
+    movePacket.setUint8(0, 1);
+    scrollPacket.setUint8(0, 2);
+    clickPacket.setUint8(0, 3);
+
+    let socket = null;
+    let state = 'offline';
+    let pairingTimer = 0;
+    let deviceToken = '';
+    let tokenRemembered = false;
+    let tokenRemovalFailed = false;
+    let storageMessage = '';
+    let busyNotice = false;
+    let sensitivity = 1.3;
+    let frame = 0;
+    let moveX = 0;
+    let moveY = 0;
+    let wheel = 0;
+    let lastMotionAt = 0;
+    let holdTimer = 0;
+    let gesture = 'idle';
+    let tapEligible = false;
+    let startX = 0;
+    let startY = 0;
+    let startedAt = 0;
+    let scrollY = 0;
+
+    function showNotice(message) {
+      busyNotice = false;
+      const text = message && storageMessage ? `${message} ${storageMessage}` : message || storageMessage;
+      if (notice.textContent !== text) notice.textContent = text;
+      notice.hidden = !text;
+    }
+
+    function showBusy() {
+      showNotice('Connection is busy. Input was dropped; try again.');
+      busyNotice = true;
+    }
+
+    function rememberToken(token) {
+      deviceToken = token;
+      tokenRemembered = false;
+      tokenRemovalFailed = false;
+      try {
+        localStorage.setItem(TOKEN_KEY, token);
+        tokenRemembered = true;
+        storageMessage = '';
+      } catch {
+        storageMessage = STORAGE_WARNING;
+      }
+    }
+
+    function forgetToken() {
+      deviceToken = '';
+      tokenRemembered = false;
+      pinField.value = '';
+      pinField.removeAttribute('aria-invalid');
+      try {
+        localStorage.removeItem(TOKEN_KEY);
+        tokenRemovalFailed = false;
+        storageMessage = '';
+      } catch {
+        tokenRemovalFailed = true;
+        storageMessage = 'The saved credential could not be removed from browser storage. Allow storage and try Forget this browser again, or revoke trusted devices on your computer.';
+      }
+    }
+
+    function setState(next) {
+      state = next;
+      const ready = next === 'ready';
+      const connecting = next === 'connecting';
+      const reconnect = !!deviceToken;
+      connection.dataset.state = next;
+      statusText.textContent = ready ? 'Connected' : connecting ? 'Connecting' : 'Not connected';
+      pair.hidden = ready;
+      remote.hidden = !ready;
+      openSettings.hidden = !ready && !reconnect && !tokenRemovalFailed;
+      disconnectButton.hidden = !ready;
+      forgetBrowser.hidden = !reconnect && !tokenRemovalFailed;
+      pinEntry.hidden = reconnect;
+      pinField.disabled = connecting || reconnect;
+      connectButton.disabled = connecting;
+      connectButton.textContent = connecting ? 'Connecting…' : reconnect ? 'Reconnect' : 'Connect';
+      pairTitle.textContent = reconnect ? 'Ready to reconnect' : 'Pair your device';
+      pairHint.textContent = reconnect
+        ? tokenRemembered
+          ? 'This browser is paired. Reconnect without entering a PIN.'
+          : 'Paired for this visit. Reconnect without entering a PIN.'
+        : 'Enter the PIN shown in the TouchCursor window on your computer.';
+      privacy.textContent = tokenRemovalFailed
+        ? 'This page has disconnected, but its saved credential could not be removed. Use the computer to revoke trusted devices if browser storage remains blocked.'
+        : reconnect && !tokenRemembered
+          ? 'Browser storage is unavailable. Your credential is kept for this visit only; your PIN is never saved. Use the computer to revoke trusted devices.'
+          : 'A trusted credential is saved in this browser, never your PIN. Forgetting clears this browser only; use the computer to revoke trusted devices.';
+    }
+
+    function discardMotion() {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      moveX = 0;
+      moveY = 0;
+      wheel = 0;
+      lastMotionAt = 0;
+    }
+
+    function cancelHold() {
+      clearTimeout(holdTimer);
+      holdTimer = 0;
+    }
+
+    function resetInput() {
+      cancelHold();
+      discardMotion();
+      const captured = [...fingers.keys()];
+      fingers.clear();
+      gesture = 'idle';
+      tapEligible = false;
+      startX = startY = startedAt = scrollY = 0;
+      for (const id of captured) {
+        if (pad.hasPointerCapture(id)) pad.releasePointerCapture(id);
+      }
+    }
+
+    function endConnection(message = '') {
+      const previous = socket;
+      socket = null;
+      clearTimeout(pairingTimer);
+      pairingTimer = 0;
+      resetInput();
+      if (settings.open) settings.close();
+      if (previous && previous.readyState < WebSocket.CLOSING) previous.close();
+      pinField.value = '';
+      setState('offline');
+      showNotice(message);
+    }
+
+    function connect() {
+      const usingTrust = !!deviceToken;
+      const authentication = usingTrust ? `trust:${deviceToken}` : `pair:${pinField.value}`;
+      let issuedToken = false;
+      endConnection();
+      pinField.removeAttribute('aria-invalid');
+      setState('connecting');
+      let ws;
+      try {
+        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+        ws = new WebSocket(`${protocol}//${location.host}/ws`);
+      } catch {
+        endConnection('Unable to open a connection. Open TouchCursor using the address shown on your computer.');
+        return;
+      }
+      socket = ws;
+      ws.binaryType = 'arraybuffer';
+      pairingTimer = setTimeout(() => {
+        if (socket === ws) endConnection('Connection timed out. Check Wi-Fi and that TouchCursor is running, then reconnect.');
+      }, 10000);
+      ws.onopen = () => {
+        if (socket !== ws) return;
+        try {
+          ws.send(authentication);
+        } catch {
+          endConnection('Could not authenticate. Check the connection, then reconnect.');
+        }
+      };
+      ws.onmessage = event => {
+        if (socket !== ws) return;
+        if (state === 'connecting' && !usingTrust && !issuedToken
+            && typeof event.data === 'string' && event.data.startsWith('trusted:')
+            && TOKEN_PATTERN.test(event.data.slice(8))) {
+          rememberToken(event.data.slice(8));
+          issuedToken = true;
+        } else if (event.data === 'ready' && state === 'connecting' && (usingTrust || issuedToken)) {
+          clearTimeout(pairingTimer);
+          pairingTimer = 0;
+          pinField.blur();
+          showNotice('');
+          setState('ready');
+        } else if (event.data === 'untrusted') {
+          forgetToken();
+          endConnection('This browser is no longer trusted. Enter the PIN shown on your computer to pair again.');
+        } else if (event.data === 'pin' && !usingTrust) {
+          endConnection('That PIN did not match. Enter the four digits shown on your computer.');
+          pinField.setAttribute('aria-invalid', 'true');
+        } else if (event.data === 'locked' && !usingTrust) {
+          endConnection('Too many incorrect PIN attempts. Pairing is temporarily locked; wait before trying again.');
+        } else if (event.data === 'storage') {
+          endConnection('TouchCursor could not access its trusted-device storage. Check the computer, then reconnect.');
+        } else if (event.data === 'error') {
+          endConnection('The computer rejected the input. Check TouchCursor on the computer, then reconnect.');
+        } else {
+          endConnection('Unexpected response from the computer. Reconnect to try again.');
+        }
+      };
+      ws.onerror = () => {
+        if (socket === ws) endConnection('Cannot reach the computer. Check Wi-Fi and that TouchCursor is running, then reconnect.');
+      };
+      ws.onclose = () => {
+        if (socket !== ws) return;
+        endConnection(state === 'ready'
+          ? 'Connection lost. Check the computer and Wi-Fi, then reconnect.'
+          : 'Could not connect to the computer. Check the connection, then try again.');
+      };
+    }
+
+    function canInput() {
+      return state === 'ready' && !settings.open && !document.hidden;
+    }
+
+    function transmit(packet) {
+      if (!canInput()) return false;
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        endConnection('Connection lost. Check the computer and Wi-Fi, then reconnect.');
+        return false;
+      }
+      if (socket.bufferedAmount > BUFFER_LIMIT) {
+        discardMotion();
+        showBusy();
+        return false;
+      }
+      try {
+        socket.send(packet.buffer);
+        if (busyNotice) showNotice('');
+        return true;
+      } catch {
+        endConnection('Input could not be sent. Check the connection, then reconnect.');
+        return false;
+      }
+    }
+
+    function accumulate(dx, dy, delta) {
+      if (!canInput()) return;
+      if (!socket || socket.readyState !== WebSocket.OPEN) {
+        endConnection('Connection lost. Check the computer and Wi-Fi, then reconnect.');
+        return;
+      }
+      if (socket.bufferedAmount > BUFFER_LIMIT) {
+        discardMotion();
+        showBusy();
+        return;
+      }
+      const now = performance.now();
+      if (lastMotionAt && now - lastMotionAt > MAX_MOTION_AGE) discardMotion();
+      moveX = Math.max(-2500, Math.min(2500, moveX + dx));
+      moveY = Math.max(-2500, Math.min(2500, moveY + dy));
+      wheel = Math.max(-6000, Math.min(6000, wheel + delta));
+      lastMotionAt = now;
+      if (!frame) frame = requestAnimationFrame(flushMotion);
+    }
+
+    function flushMotion() {
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+      if (!canInput() || performance.now() - lastMotionAt > MAX_MOTION_AGE) {
+        discardMotion();
+        return;
+      }
+      const dx = Math.trunc(moveX);
+      const dy = Math.trunc(moveY);
+      const delta = Math.trunc(wheel);
+      moveX -= dx;
+      moveY -= dy;
+      wheel -= delta;
+      if (dx || dy) {
+        movePacket.setInt32(1, dx, true);
+        movePacket.setInt32(5, dy, true);
+        if (!transmit(movePacket)) return;
+      }
+      if (delta) {
+        scrollPacket.setInt32(1, delta, true);
+        transmit(scrollPacket);
+      }
+    }
+
+    function click(button) {
+      if (!canInput()) return;
+      flushMotion();
+      clickPacket.setUint8(1, button);
+      transmit(clickPacket);
+    }
+
+    function centroidY() {
+      let total = 0;
+      for (const finger of fingers.values()) total += finger.y;
+      return total / fingers.size;
+    }
+
+    function updatePointer(event) {
+      const finger = fingers.get(event.pointerId);
+      if (!finger) return;
+      const coalesced = event.getCoalescedEvents?.();
+      // A nonempty coalesced list already contains the dispatched movement.
+      const samples = coalesced?.length ? coalesced : [event];
+      for (const sample of samples) {
+        const dx = sample.clientX - finger.x;
+        const dy = sample.clientY - finger.y;
+        finger.x = sample.clientX;
+        finger.y = sample.clientY;
+        if (gesture === 'move' && fingers.size === 1) {
+          if (Math.hypot(finger.x - startX, finger.y - startY) > 8) {
+            tapEligible = false;
+            cancelHold();
+          }
+          if (dx || dy) accumulate(dx * sensitivity, dy * sensitivity, 0);
+        } else if (gesture === 'scroll' && fingers.size === 2) {
+          const nextY = centroidY();
+          if (nextY !== scrollY) accumulate(0, 0, (scrollY - nextY) * 2);
+          scrollY = nextY;
+        }
+      }
+    }
+
+    pad.addEventListener('pointerdown', event => {
+      if (!canInput() || (event.pointerType === 'mouse' && event.button !== 0)) return;
+      event.preventDefault();
+      pad.setPointerCapture(event.pointerId);
+      fingers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+      if (fingers.size === 1 && gesture === 'idle') {
+        discardMotion();
+        gesture = 'move';
+        tapEligible = true;
+        startX = event.clientX;
+        startY = event.clientY;
+        startedAt = performance.now();
+        holdTimer = setTimeout(() => {
+          holdTimer = 0;
+          if (canInput() && gesture === 'move' && tapEligible && fingers.size === 1
+              && fingers.has(event.pointerId)) {
+            tapEligible = false;
+            gesture = 'held';
+            click(1);
+          }
+        }, 600);
+      } else {
+        cancelHold();
+        tapEligible = false;
+        discardMotion();
+        if (fingers.size === 2 && gesture === 'move') {
+          gesture = 'scroll';
+          scrollY = centroidY();
+        } else {
+          gesture = 'blocked';
+        }
+      }
+    });
+
+    pad.addEventListener('pointermove', event => {
+      if (!fingers.has(event.pointerId)) return;
+      event.preventDefault();
+      if (!canInput()) resetInput();
+      else updatePointer(event);
+    });
+
+    pad.addEventListener('pointerup', event => {
+      if (!fingers.has(event.pointerId)) return;
+      event.preventDefault();
+      updatePointer(event);
+      const tap = gesture === 'move' && tapEligible && fingers.size === 1
+        && performance.now() - startedAt < 600;
+      cancelHold();
+      fingers.delete(event.pointerId);
+      if (tap) click(0);
+      else flushMotion();
+      if (!fingers.size) {
+        resetInput();
+      } else {
+        // A remaining finger cannot become a new move or tap gesture.
+        gesture = 'blocked';
+        tapEligible = false;
+        discardMotion();
+      }
+    });
+
+    for (const type of ['pointercancel', 'lostpointercapture']) {
+      pad.addEventListener(type, event => {
+        if (fingers.has(event.pointerId)) resetInput();
+      });
+    }
+    pad.addEventListener('contextmenu', event => event.preventDefault());
+    window.addEventListener('blur', resetInput);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) resetInput();
+    });
+
+    for (const [id, button] of [['left', 0], ['right', 1]]) {
+      const control = document.getElementById(id);
+      control.addEventListener('pointerdown', () => {
+        flushMotion();
+        resetInput();
+      });
+      control.addEventListener('click', () => {
+        click(button);
+        resetInput();
+      });
+    }
+
+    openSettings.addEventListener('click', () => {
+      resetInput();
+      if ((state === 'ready' || deviceToken || tokenRemovalFailed) && !settings.open) settings.showModal();
+    });
+    settings.addEventListener('close', resetInput);
+    sensitivityField.addEventListener('input', () => {
+      sensitivity = Number(sensitivityField.value);
+      speedValue.value = `${sensitivity.toFixed(1)}×`;
+      sensitivityField.setAttribute('aria-valuetext', `${sensitivity.toFixed(1)} times`);
+    });
+    disconnectButton.addEventListener('click', () => endConnection());
+    forgetBrowser.addEventListener('click', () => {
+      forgetToken();
+      endConnection(tokenRemovalFailed
+        ? 'Disconnected and cleared this page’s credential.'
+        : 'This browser’s saved credential was cleared. Enter the PIN to pair again.');
+    });
+    pinField.addEventListener('input', () => {
+      pinField.value = pinField.value.replace(/[^0-9]/g, '').slice(0, 4);
+      pinField.removeAttribute('aria-invalid');
+    });
+    document.querySelector('#pairForm').addEventListener('submit', event => {
+      event.preventDefault();
+      const pin = pinField.value;
+      if (!deviceToken && !/^\d{4}$/.test(pin)) {
+        showNotice('Enter the four-digit PIN shown on your computer.');
+        pinField.setAttribute('aria-invalid', 'true');
+        pinField.focus();
+        return;
+      }
+      connect();
+    });
+    window.addEventListener('storage', event => {
+      if (event.key !== TOKEN_KEY && event.key !== null) return;
+      let savedToken;
+      try {
+        if (event.storageArea !== localStorage) return;
+        savedToken = localStorage.getItem(TOKEN_KEY) || '';
+      } catch {
+        deviceToken = '';
+        tokenRemembered = false;
+        storageMessage = STORAGE_WARNING;
+        endConnection('Browser storage changed. Enter the PIN to pair again.');
+        return;
+      }
+      const nextToken = TOKEN_PATTERN.test(savedToken) ? savedToken : '';
+      if (nextToken && nextToken === deviceToken && !tokenRemovalFailed) {
+        tokenRemembered = true;
+        storageMessage = '';
+        setState(state);
+        showNotice('');
+        return;
+      }
+      deviceToken = nextToken;
+      tokenRemembered = !!nextToken;
+      tokenRemovalFailed = false;
+      storageMessage = '';
+      pinField.removeAttribute('aria-invalid');
+      endConnection(nextToken
+        ? 'Pairing changed in another tab. Tap Reconnect to use this browser’s saved credential.'
+        : 'This browser’s saved credential was cleared in another tab. Enter the PIN to pair again.');
+    });
+
+    // Safari's keyboard resizes the visual viewport, not the layout viewport.
+    if (window.visualViewport) {
+      const fitViewport = () => {
+        if (window.visualViewport.scale === 1) {
+          document.documentElement.style.setProperty(
+            '--viewport-height', `${window.visualViewport.height}px`
+          );
+        }
+      };
+      window.visualViewport.addEventListener('resize', fitViewport);
+      fitViewport();
+    }
+
+    // Remove PINs left by earlier versions; only trusted credentials are remembered.
+    try { sessionStorage.removeItem('touchcursor-pin'); } catch {}
+    let initialMessage = '';
+    try {
+      const savedToken = localStorage.getItem(TOKEN_KEY);
+      if (savedToken !== null && TOKEN_PATTERN.test(savedToken)) {
+        deviceToken = savedToken;
+        tokenRemembered = true;
+      } else if (savedToken !== null) {
+        localStorage.removeItem(TOKEN_KEY);
+        initialMessage = 'This browser’s saved credential was invalid. Enter the PIN to pair again.';
+      }
+    } catch {
+      storageMessage = STORAGE_WARNING;
+    }
+    if (deviceToken) connect();
+    else {
+      setState('offline');
+      showNotice(initialMessage);
+    }
+  </script>
+</body>
+</html>

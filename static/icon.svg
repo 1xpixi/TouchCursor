@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" fill="none">
+  <title>TouchCursor</title>
+  <rect width="128" height="128" rx="28" fill="#101216"/>
+  <path d="M39 25V91L55 76L68 103L82 96L68 70H94L39 25Z" fill="#ECF0F7" stroke="#101216" stroke-width="3" stroke-linejoin="round"/>
+</svg>

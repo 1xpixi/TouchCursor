@@ -1,0 +1,18 @@
+[package]
+name = "touchcursor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+axum = { version = "0.7", features = ["ws"] }
+rand = "0.8"
+sha2 = "0.10"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "time", "sync"] }
+
+[target.'cfg(windows)'.dependencies]
+gpui = { version = "0.2.2", default-features = false, features = ["windows-manifest"] }
+raw-window-handle = "0.6"
+windows-sys = { version = "0.59", features = ["Win32_Graphics_Gdi", "Win32_Storage_FileSystem", "Win32_System_LibraryLoader", "Win32_UI_Input_KeyboardAndMouse", "Win32_UI_Shell", "Win32_UI_WindowsAndMessaging"] }
+
+[build-dependencies]
+embed-resource = "3.0"
