@@ -329,6 +329,7 @@
     const TOKEN_KEY = 'touchcursor-device-token';
     const TOKEN_PATTERN = /^[0-9a-f]{64}$/;
     const STORAGE_WARNING = 'Browser storage is unavailable, so TouchCursor cannot remember this browser after this visit.';
+    const OFFLINE_MESSAGE = 'This device is offline. Connect to Wi-Fi, then try again.';
     const BUFFER_LIMIT = 512;
     const MAX_MOTION_AGE = 100;
     const fingers = new Map();
@@ -471,6 +472,10 @@
     }
 
     function connect() {
+      if (!navigator.onLine) {
+        endConnection(OFFLINE_MESSAGE);
+        return;
+      }
       const usingTrust = !!deviceToken;
       const authentication = usingTrust ? `trust:${deviceToken}` : `pair:${pinField.value}`;
       let issuedToken = false;
@@ -713,6 +718,9 @@
     }
     pad.addEventListener('contextmenu', event => event.preventDefault());
     window.addEventListener('blur', resetInput);
+    window.addEventListener('offline', () => {
+      endConnection(OFFLINE_MESSAGE);
+    });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) resetInput();
     });

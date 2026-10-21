@@ -34,6 +34,8 @@ Closing the window keeps TouchCursor running in the system tray. To exit, right-
 
 The browser saves an authorization token on first connection, letting you reconnect later without entering the PIN again.
 
+If your phone goes offline, control stops and the page shows a connection notice. Restore Wi-Fi and tap **Reconnect**; your saved pairing is kept.
+
 ## Gestures
 
 - **One finger**: Drag to move the cursor; tap for left-click, double-tap for double-click, or press and hold for right-click.
