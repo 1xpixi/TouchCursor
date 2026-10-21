@@ -5,7 +5,9 @@ TouchCursor is a performance-focused minimal mouse controller that allows you to
 It pairs a native Windows host app with a touch-optimized web trackpad served over your local network.
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="TouchCursor desktop window" width="380" />
+  <img src="assets/screenshot.png" alt="TouchCursor desktop window with phone address and pairing PIN redacted" width="380" />
+  <br />
+  <sub>Phone address and pairing PIN redacted.</sub>
 </p>
 
 ## Quick Start
