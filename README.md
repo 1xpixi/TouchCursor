@@ -36,12 +36,14 @@ The browser saves an authorization token on first connection, letting you reconn
 
 If your phone goes offline, control stops and the page shows a connection notice. Restore Wi-Fi and tap **Reconnect**; your saved pairing is kept.
 
+For firewall and Wi-Fi checks, open **Can't connect?** below the pairing form.
+
 ## Gestures
 
 - **One finger**: Drag to move the cursor; tap for left-click, double-tap for double-click, or press and hold for right-click.
 - **Two fingers**: Drag vertically to scroll.
 - **Click bar**: Tap the bottom buttons for direct left and right clicks.
-- **Settings**: Adjust pointer speed, view gestures, or disconnect.
+- **Settings**: Pointer speed (saved in this browser), gesture hints, and disconnect.
 
 ## Input & Networking
 
