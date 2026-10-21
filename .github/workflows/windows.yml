@@ -1,0 +1,105 @@
+name: Windows build and release
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  build:
+    name: Test and package Windows x64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable-x86_64-pc-windows-msvc
+          targets: x86_64-pc-windows-msvc
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Check Windows SDK resource compiler
+        run: Get-Command rc.exe -ErrorAction Stop
+
+      - name: Validate release tag against package version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          $metadataJson = cargo metadata --locked --no-deps --format-version 1
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Failed to read Cargo package metadata.'
+          }
+          $metadata = $metadataJson | ConvertFrom-Json
+          $package = $metadata.packages | Where-Object { $_.name -eq 'touchcursor' }
+          if (-not $package -or $env:GITHUB_REF_NAME -cne "v$($package.version)") {
+            throw "Tag '$env:GITHUB_REF_NAME' must match Cargo.toml version 'v$($package.version)'."
+          }
+
+      - name: Test locked dependencies
+        run: cargo test --release --locked --target x86_64-pc-windows-msvc
+
+      - name: Build release executable
+        run: cargo build --release --locked --target x86_64-pc-windows-msvc
+
+      - name: Package portable executable and checksum
+        run: |
+          $staging = Join-Path $env:RUNNER_TEMP 'TouchCursor-package'
+          New-Item -ItemType Directory -Path $staging | Out-Null
+          New-Item -ItemType Directory -Path dist | Out-Null
+          Copy-Item -LiteralPath 'target/x86_64-pc-windows-msvc/release/touchcursor.exe' -Destination $staging
+          Copy-Item -LiteralPath 'start.bat' -Destination $staging
+          $archive = 'dist/TouchCursor-windows-x64.zip'
+          Compress-Archive -Path "$staging/*" -DestinationPath $archive
+          $hash = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  TouchCursor-windows-x64.zip" | Set-Content -LiteralPath "$archive.sha256" -Encoding ascii
+
+      - name: Upload portable package
+        uses: actions/upload-artifact@v4
+        with:
+          name: TouchCursor-windows-x64
+          path: |
+            dist/TouchCursor-windows-x64.zip
+            dist/TouchCursor-windows-x64.zip.sha256
+          if-no-files-found: error
+
+  release:
+    name: Publish tagged release
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TouchCursor-windows-x64
+          path: dist
+
+      - name: Publish binary archive and checksum
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" \
+            dist/TouchCursor-windows-x64.zip \
+            dist/TouchCursor-windows-x64.zip.sha256 \
+            --verify-tag \
+            --title "TouchCursor $RELEASE_TAG" \
+            --generate-notes

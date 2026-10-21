@@ -12,17 +12,23 @@ It pairs a native Windows host app with a touch-optimized web trackpad served ov
 
 ## Quick Start
 
-### Requirements
-- Windows
-- [Rust](https://www.rust-lang.org/) with the MSVC toolchain (`x86_64-pc-windows-msvc`)
-- Windows SDK resource compiler (`rc.exe`)
+### Portable Windows build
 
-### Run
-Double-click `start.bat` to build and start TouchCursor, or launch it manually:
+Download the **TouchCursor-windows-x64** artifact from a successful [Windows build](https://github.com/1xpixi/TouchCursor/actions/workflows/windows.yml) (GitHub sign-in required). Extract it, then extract `TouchCursor-windows-x64.zip` and run `touchcursor.exe` or `start.bat`. Rust is not required.
+
+Tagged [releases](https://github.com/1xpixi/TouchCursor/releases) include the same ZIP and its SHA-256 checksum. Windows may warn about the unsigned executable.
+
+### Build from source
+
+Requires Windows x64, [Rust](https://www.rust-lang.org/) with the MSVC toolchain, and the Windows SDK resource compiler (`rc.exe`).
+
+Double-click `start.bat`, or run:
 
 ```powershell
-cargo run --release
+cargo run --release --locked
 ```
+
+The source launcher rebuilds before starting, so changes are picked up. If the app is already running, choose **Quit app** from the tray before rebuilding.
 
 Closing the window keeps TouchCursor running in the system tray. To exit, right-click the tray icon and select **Quit app**.
 
